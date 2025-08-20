@@ -21,7 +21,7 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocket.Server({ server });
 
 // Carte e valutazione
-const RANKS = '23456789TJQKA'.split('');
+const RANKS = '23456789JQKA'.split('');
 const SUITS = ['♣', '♦', '♥', '♠'];
 const RVAL = Object.fromEntries(RANKS.map((r, i) => [r, i + 2]));
 
