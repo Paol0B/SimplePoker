@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Poker 5 Carte Draw – Multiplayer</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">♠ 5 Card Draw</div>
+    <input id="room" placeholder="Stanza (es. MILANO)" autocomplete="off" />
+    <input id="name" placeholder="Il tuo nome" autocomplete="off" />
+    <button id="joinBtn">Entra</button>
+    <button id="startBtn">Inizia</button>
+    <span id="status"></span>
+  </header>
+
+  <main id="tableWrap" class="hidden">
+    <section id="table" class="table">
+      <div class="felt"></div>
+      <div class="glow"></div>
+
+      <div class="pot-area">
+        <div id="potChips" class="chip-stack"></div>
+        <div class="pot-info">
+          <span id="pot">Pot: 0</span> • <span id="stage">Lobby</span>
+        </div>
+      </div>
+
+      <div id="dealerBtn" class="dealer-btn" title="Dealer">D</div>
+
+      <div id="seats" class="seats"></div>
+    </section>
+
+    <section class="actions">
+      <div class="left">
+        <button class="act" id="checkBtn" title="Check (C)">Check</button>
+        <button class="act" id="betBtn" title="Bet (B)">Bet</button>
+        <div id="betControl" class="bet-control hidden" aria-hidden="true">
+          <input id="betAmount" type="number" min="1" step="1" value="20" />
+          <button id="betConfirm" class="act small">Ok</button>
+        </div>
+        <button class="act" id="callBtn" title="Call (C)">Call</button>
+        <button class="act" id="foldBtn" title="Fold (F)">Fold</button>
+      </div>
+      <div class="right">
+        <button class="act alt" id="discardBtn" title="Scarta (D)">Scarta selezionate</button>
+        <span id="discardHint" class="hint">Seleziona fino a 3 carte</span>
+      </div>
+    </section>
+
+    <div class="msg" id="msg"></div>
+    <div id="toasts" class="toasts"></div>
+
+  </main>
+
+  <script src="client.js"></script>
+</body>
+</html>
