@@ -121,12 +121,12 @@ function availableActions(room, me){
   if (occCount < 2) return [];
   // solo il giocatore a turno può agire
   if (room.toActSeat !== me.seat) return [];
-  // quando non c'è puntata corrente
+  // quando non c'è puntata corrente -> può checkare o puntare
   if (!room.currentBet || room.currentBet === 0) return ['Check','Bet'];
-  // se ha una puntata da coprire
+  // se ha una puntata da coprire -> deve chiamare o foldare
   if ((me.bet || 0) < (room.currentBet || 0)) return ['Call','Fold'];
-  // ha già pareggiato la puntata corrente: può controllare (Check)
-  return ['Check'];
+  // ha già pareggiato la puntata corrente: può controllare o rilanciare
+  return ['Check','Bet','Fold'];
 }
 
 function buildStateFor(room, me){
@@ -138,7 +138,7 @@ function buildStateFor(room, me){
       continue;
     }
     const showCards = (room.stage === 'showdown' && !p.folded) || p === me;
-    players.push({
+    const playerObj = {
       seat: p.seat,
       name: p.name,
       stack: p.stack,
@@ -147,7 +147,16 @@ function buildStateFor(room, me){
       drew: p.drew,
       cards: showCards ? p.cards : [{},{},{},{},{}],
       isBot: !!p.isBot
-    });
+    };
+    // if cards are visible (player or showdown), include evaluated score and human-friendly name
+    if (showCards && Array.isArray(p.cards) && p.cards.length === 5) {
+      try {
+        const sc = eval5(p.cards);
+        playerObj._score = sc;
+        playerObj.hand = scoreName(sc);
+      } catch (e) {}
+    }
+    players.push(playerObj);
   }
   return {
     room: room.code,
@@ -174,7 +183,12 @@ function broadcast(room){
       try {
         console.log(`[broadcast] room=${room.code} stage=${room.stage} toAct=${room.toActSeat} currentBet=${room.currentBet} -> ${p.name}@seat${p.seat} actions=${JSON.stringify(st.actions)}`);
       } catch (e) { /* ignore logging errors */ }
-      send(p.ws, { type:'state', state: st });
+      // include a small summary for clients when in showdown
+      const payload = { type:'state', state: st };
+      if (room.stage === 'showdown' && room.winners && room.winners.length) {
+        payload.summary = { winners: room.winners.slice(), message: room.message };
+      }
+      send(p.ws, payload);
     }
   }
   // se il giocatore a turno è un bot, schedula la sua azione
@@ -501,6 +515,26 @@ function handleBet(room, me, action, amount){
       } else {
         nextActionSeat(room);
       }
+    } else if (action === 'Bet') {
+      // treat as raise: amount must be provided or default to min BET
+      let raiseAmt = Number(amount || BET) || BET;
+      raiseAmt = Math.max(BET, Math.floor(raiseAmt));
+      const toPay = raiseAmt - (me.bet || 0);
+      if (toPay <= 0) {
+        // nothing to do
+        return;
+      }
+      const pay = Math.min(toPay, me.stack);
+      me.stack -= pay; me.bet += pay; room.pot += pay;
+      me.contributed = (me.contributed || 0) + pay;
+      if ((me.stack || 0) === 0) me.allIn = true;
+      room.currentBet = Math.max(room.currentBet || 0, me.bet);
+      // resetting checks because there was an action
+      room.checks = 0;
+      me._acted = true;
+      // next player must respond to the raise
+      nextActionSeat(room);
+      room.message = `${me.name} rilancia a ${room.currentBet}.`;
     }
   }
 }

@@ -65,13 +65,26 @@ function connect() {
 
       // Show overlay ONLY when server explicitly requests it (won or showOverlay)
       if (msg.state.won || msg.state.showOverlay) {
-        showOverlay(msg.state.overlayText || 'Hai vinto!');
+        showOverlay(msg.state.overlayText || 'Fine mano');
       } else {
         hideOverlay();
       }
 
       const newMsg = msg.state.message || '';
       if (newMsg && newMsg !== prevMsg && !MSG_BLACKLIST.has(newMsg)) showToast(newMsg);
+
+      // If server included a summary (showdown), display detailed winners and hand names
+      if (msg.summary && Array.isArray(msg.summary.winners) && msg.summary.winners.length) {
+        try {
+          const winners = msg.summary.winners.map(seat => {
+            const p = msg.state.players && msg.state.players[seat];
+            const hand = p && p.hand ? p.hand : (p && Array.isArray(p.cards) && p.cards.length===5 ? scoreName(eval5(p.cards)) : '');
+            return `${p ? p.name : 'Seat '+seat}${hand ? ' ('+hand+')' : ''}`;
+          });
+          const overlayText = msg.summary.message || `Vincitori: ${winners.join(', ')}`;
+          showOverlay(overlayText);
+        } catch (e) { /* ignore errors */ }
+      }
     }
   });
 
@@ -129,6 +142,55 @@ function renderCard(c) {
   if (c.s === '♦' || c.s === '♥') div.className += ' red';
   div.textContent = `${c.r}${c.s}`;
   return div;
+}
+
+// Client-side hand evaluator (mirrors server logic)
+function eval5(cards) {
+  const counts = {}, suits = {}, vals = [];
+  for (const c of cards) {
+    counts[c.v] = (counts[c.v] || 0) + 1;
+    suits[c.s] = (suits[c.s] || 0) + 1;
+    vals.push(c.v || 0);
+  }
+  vals.sort((a, b) => b - a);
+  const uniq = [...new Set(vals)].sort((a, b) => b - a);
+  let straightHigh = 0;
+  if ([14,5,4,3,2].every(v => uniq.includes(v))) straightHigh = 5;
+  for (let i = 0; i <= uniq.length - 5; i++) {
+    if (uniq[i] === uniq[i+1] + 1 && uniq[i+1] === uniq[i+2] + 1 && uniq[i+2] === uniq[i+3] + 1 && uniq[i+3] === uniq[i+4] + 1) {
+      straightHigh = Math.max(straightHigh, uniq[i]);
+    }
+  }
+  const isFlush = Object.values(suits).some(v => v === 5);
+  const byCount = Object.entries(counts).map(([v, c]) => ({ v: +v, c })).sort((a,b)=> b.c - a.c || b.v - a.v);
+  if (isFlush && straightHigh) return [8, straightHigh];
+  if (byCount[0] && byCount[0].c === 4) return [7, byCount[0].v, (byCount[1]||{}).v];
+  if (byCount[0] && byCount[0].c === 3 && byCount[1] && byCount[1].c === 2) return [6, byCount[0].v, byCount[1].v];
+  if (isFlush) return [5, ...vals];
+  if (straightHigh) return [4, straightHigh];
+  if (byCount[0] && byCount[0].c === 3) {
+    const kick = byCount.filter(x => x.c === 1).map(x => x.v).sort((a,b)=>b-a);
+    return [3, byCount[0].v, ...kick];
+  }
+  if (byCount[0] && byCount[1] && byCount[0].c === 2 && byCount[1].c === 2) {
+    const hp = Math.max(byCount[0].v, byCount[1].v);
+    const lp = Math.min(byCount[0].v, byCount[1].v);
+    const k = byCount.find(x => x.c === 1).v;
+    return [2, hp, lp, k];
+  }
+  if (byCount[0] && byCount[0].c === 2) {
+    const kick = byCount.filter(x => x.c === 1).map(x => x.v).sort((a,b)=>b-a);
+    return [1, byCount[0].v, ...kick];
+  }
+  return [0, ...vals];
+}
+function scoreName(s){ return ['Carta alta','Coppia','Doppia coppia','Tris','Scala','Colore','Full','Poker','Scala colore'][s[0]]; }
+
+// overlay defaults: ensure overlay DOM exists in older clients
+if (!els.overlay) {
+  els.overlay = document.getElementById('overlay');
+  els.overlayText = document.getElementById('overlayText');
+  els.overlayBtn = document.getElementById('overlayBtn');
 }
 
 function valueToChips(v) {
@@ -239,6 +301,11 @@ function render(state) {
     left.appendChild(makeAvatar(pd?.name || 'Posto libero'));
     const nm = document.createElement('div'); nm.className = 'name'; nm.textContent = pd?.name || 'Posto libero';
     left.appendChild(nm);
+    // show hand name if available (e.g. during showdown or for self)
+    if (pd && pd.hand) {
+      const hn = document.createElement('div'); hn.className = 'hand-name'; hn.textContent = pd.hand; hn.style.fontSize = '.8rem'; hn.style.color = '#ffd'; hn.style.marginLeft = '.4rem';
+      left.appendChild(hn);
+    }
     // se posto libero, aggiungi bottone per inserire un bot
     if (pd && pd.empty) {
       const addBtn = document.createElement('button');
@@ -261,6 +328,13 @@ function render(state) {
     const fd = document.createElement('span'); fd.className = 'fold'; fd.textContent = pd?.folded ? 'Fold' : '';
     flags.append(tIcon, fd);
     head.append(left, flags);
+    // if this seat is to act, add an action hint badge
+    if (state.toActSeat === s) {
+      const actionHint = document.createElement('div'); actionHint.className = 'action-hint';
+      actionHint.textContent = (state.actions && state.actions.length) ? state.actions.join(', ') : '';
+      actionHint.style.fontSize = '.75rem'; actionHint.style.color = '#bfe'; actionHint.style.marginLeft = '.6rem';
+      head.appendChild(actionHint);
+    }
     seat.appendChild(head);
 
     const cards = document.createElement('div'); cards.className = 'cards';
@@ -428,7 +502,15 @@ function setupEvents() {
   window.addEventListener('keydown', (e) => {
     if (!lastState) return;
     const k = (e.key || '').toLowerCase();
+    // Space: primary action - prefer Check, fallback to Call
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (!els.actions.check.disabled) els.actions.check.click();
+      else if (!els.actions.call.disabled) els.actions.call.click();
+      return;
+    }
     if (k === 'c') {
+      // C toggles check if available, otherwise call
       if (!els.actions.check.disabled) els.actions.check.click();
       else if (!els.actions.call.disabled) els.actions.call.click();
     }

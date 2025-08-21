@@ -11,8 +11,8 @@
     <div class="brand">♠ 5 Card Draw</div>
     <input id="room" placeholder="Stanza (es. MILANO)" autocomplete="off" />
     <input id="name" placeholder="Il tuo nome" autocomplete="off" />
-    <button id="joinBtn">Entra</button>
-    <button id="startBtn">Inizia</button>
+  <button id="joinBtn">Entra</button>
+  <button id="startBtn">Inizia mano</button>
     <span id="status"></span>
   </header>
 
@@ -22,27 +22,23 @@
       <div class="glow"></div>
 
       <div class="pot-area">
-        <div id="potChips" class="chip-stack"></div>
         <div class="pot-info">
           <span id="pot">Pot: 0</span> • <span id="stage">Lobby</span>
         </div>
       </div>
-
-      <div id="dealerBtn" class="dealer-btn" title="Dealer">D</div>
-
       <div id="seats" class="seats"></div>
     </section>
 
     <section class="actions">
       <div class="left">
-        <button class="act" id="checkBtn" title="Check (C)">Check</button>
-        <button class="act" id="betBtn" title="Bet (B)">Bet</button>
+        <button class="act" id="checkBtn" title="Passa / Chiama (Barra spaziatrice)">Passa / Chiama</button>
+        <button class="act" id="betBtn" title="Punta (B)">Punta</button>
         <div id="betControl" class="bet-control hidden" aria-hidden="true">
           <input id="betAmount" type="number" min="1" step="1" value="20" />
           <button id="betConfirm" class="act small">Ok</button>
         </div>
-        <button class="act" id="callBtn" title="Call (C)">Call</button>
-        <button class="act" id="foldBtn" title="Fold (F)">Fold</button>
+        <button class="act" id="callBtn" title="Chiama (C)">Chiama</button>
+        <button class="act" id="foldBtn" title="Abbandona (F)">Abbandona</button>
       </div>
       <div class="right">
         <button class="act alt" id="discardBtn" title="Scarta (D)">Scarta selezionate</button>
@@ -52,6 +48,13 @@
 
     <div class="msg" id="msg"></div>
     <div id="toasts" class="toasts"></div>
+    <!-- Simple overlay used to show end-of-hand or important messages -->
+    <div id="overlay" class="hidden" aria-hidden="true">
+      <div class="overlay-panel">
+        <div id="overlayText" class="overlay-text"></div>
+        <button id="overlayBtn" class="act">Ok</button>
+      </div>
+    </div>
 
   </main>
 
