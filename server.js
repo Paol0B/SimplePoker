@@ -587,10 +587,16 @@ wss.on('connection', (ws) => {
       if (!room) { send(ws, { type:'message', text:'Devi prima entrare in una stanza.' }); return; }
       const r = room;
       if (r.players.length >= r.config.MAX_SEATS) { send(ws, { type:'message', text:'Tavolo pieno.' }); return; }
-      // primo seat libero
-      let seat = 0; while (r.players.some(p => p.seat === seat)) seat++;
+      // try requested seat if provided and free
+      let seat = null;
+      if (typeof msg.seat === 'number' && msg.seat >= 0 && msg.seat < r.config.MAX_SEATS) {
+        const occupied = r.players.some(p => p.seat === msg.seat);
+        if (!occupied) seat = msg.seat;
+      }
+      // fallback to first free seat
+      if (seat === null) { seat = 0; while (r.players.some(p => p.seat === seat)) seat++; }
       const botName = `BOT_${Math.random().toString(36).slice(2,6).toUpperCase()}`;
-  const bot = { id: 'bot_'+Math.random().toString(36).slice(2), ws: null, isBot: true, name: botName, seat, stack: 1000, cards: [], bet:0, folded:false, drew:false, allIn:false, contributed:0 };
+      const bot = { id: 'bot_'+Math.random().toString(36).slice(2), ws: null, isBot: true, name: botName, seat, stack: 1000, cards: [], bet:0, folded:false, drew:false, allIn:false, contributed:0 };
       r.players.push(bot);
       r.message = `${botName} si siede al posto ${seat}.`;
       broadcast(r);

@@ -82,7 +82,9 @@ function connect() {
             return `${p ? p.name : 'Seat '+seat}${hand ? ' ('+hand+')' : ''}`;
           });
           const overlayText = msg.summary.message || `Vincitori: ${winners.join(', ')}`;
-          showOverlay(overlayText);
+              showOverlay(overlayText);
+              // animate victory: highlight cards and fly chips
+              try { animateVictory(msg.state, msg.summary); } catch (e) { /* ignore animation errors */ }
         } catch (e) { /* ignore errors */ }
       }
     }
@@ -90,6 +92,59 @@ function connect() {
 
   ws.addEventListener('error', (err) => {
     console.warn('WebSocket error', err);
+  });
+}
+
+// animateVictory: highlight winning cards and animate chips from pot to winners
+function animateVictory(state, summary) {
+  if (!state || !summary || !Array.isArray(summary.winners)) return;
+  // briefly add animate-win class to winning cards
+  summary.winners.forEach(seat => {
+    const seatEl = els.seats.querySelector(`.seat[data-idx="${seat}"]`);
+    if (!seatEl) return;
+    const cards = [...seatEl.querySelectorAll('.card')];
+    cards.forEach((c, i) => {
+      if (c.classList.contains('winning')) {
+        c.classList.add('animate-win');
+        setTimeout(() => c.classList.remove('animate-win'), 1500);
+      }
+    });
+  });
+
+  // animate a few chips flying from pot center to each winner
+  const potEl = els.pot || null;
+  const tableRect = els.table?.getBoundingClientRect();
+  const potCenter = { x: (tableRect.left + tableRect.right) / 2, y: (tableRect.top + tableRect.bottom) / 2 };
+  summary.winners.forEach((seat, idx) => {
+    const seatEl = els.seats.querySelector(`.seat[data-idx="${seat}"]`);
+    if (!seatEl) return;
+    const sRect = seatEl.getBoundingClientRect();
+    const target = { x: sRect.left + sRect.width / 2, y: sRect.top + sRect.height / 2 };
+    // create some chips to fly (2 chips per winner)
+    for (let i = 0; i < 2; i++) {
+      const chip = document.createElement('div');
+      chip.className = 'chip fly';
+      chip.textContent = '';
+      document.body.appendChild(chip);
+      // start position at pot center
+      const startX = potCenter.x - 13; // center chip (half width ~13)
+      const startY = potCenter.y - 13;
+      chip.style.left = `${startX}px`;
+      chip.style.top = `${startY}px`;
+      chip.style.opacity = '1';
+      // force layout
+      void chip.offsetWidth;
+      // set transform to target
+      const dx = target.x - potCenter.x;
+      const dy = target.y - potCenter.y;
+      chip.style.transform = `translate(${dx}px, ${dy}px) scale(0.8)`;
+      chip.style.transitionDelay = `${0.05 * i + idx * 0.06}s`;
+      // remove after animation
+      setTimeout(() => {
+        chip.style.opacity = '0';
+        setTimeout(() => { try { chip.remove(); } catch (e) {} }, 800);
+      }, 1100 + idx * 120 + i * 60);
+    }
   });
 }
 
@@ -275,6 +330,103 @@ function updateDiscardHint(max) {
   }
 }
 
+// ritorna gli indici delle carte che concorrono alla combinazione vincente (per 5-card draw)
+function computeWinningIndices(cards, score) {
+  if (!cards || !score) return [];
+  const kind = score[0]; // 0:high,1:pair,2:two pair,3:trips,4:straight,5:flush,6:full,7:four,8:straight flush
+  const vals = cards.map(c => c.v);
+  const suits = cards.map(c => c.s);
+  const byVal = {};
+  vals.forEach((v, i) => { (byVal[v] = byVal[v] || []).push(i); });
+  const indices = new Set();
+
+  // Helper: add indices for a set of values
+  const addVals = (arr) => { arr.forEach(v => { const idxs = byVal[v] || []; idxs.forEach(i => indices.add(i)); }); };
+
+  if (kind === 5) { // flush — all cards of the same suit
+    const suitCounts = {};
+    suits.forEach((s, i) => { (suitCounts[s] = suitCounts[s] || []).push(i); });
+    for (const s in suitCounts) if (suitCounts[s].length >= 5) { suitCounts[s].forEach(i => indices.add(i)); }
+    return Array.from(indices).sort((a,b)=>a-b);
+  }
+
+  if (kind === 4 || kind === 8) { // straight or straight flush
+    // score[1] contains straight high (5 for wheel), reconstruct values sequence
+    let high = score[1];
+    const seq = [];
+    if (high === 5) { // wheel 5,4,3,2,A (Ace represented as 14)
+      seq.push(5,4,3,2,14);
+    } else {
+      for (let v = high; v > high - 5; v--) seq.push(v);
+    }
+    // for straight flush ensure suit matches
+    if (kind === 8) {
+      // find suit that contains straight sequence
+      const targetSuits = {};
+      suits.forEach((s, i) => { targetSuits[s] = targetSuits[s] || []; targetSuits[s].push({v: vals[i], i}); });
+      for (const s in targetSuits) {
+        const presentVals = new Set(targetSuits[s].map(x=>x.v));
+        const ok = seq.every(v => presentVals.has(v));
+        if (ok) {
+          seq.forEach(v => {
+            targetSuits[s].filter(x=>x.v===v).forEach(x=>indices.add(x.i));
+          });
+          break;
+        }
+      }
+    } else {
+      addVals(seq);
+    }
+    return Array.from(indices).sort((a,b)=>a-b);
+  }
+
+  // pairs/trips/quad/full
+  const counts = Object.entries(byVal).map(([v, idxs]) => ({v: Number(v), count: idxs.length, idxs})).sort((a,b)=> b.count - a.count || b.v - a.v);
+  if (kind === 7) { // four
+    const quad = counts.find(c=>c.count===4);
+    if (quad) quad.idxs.forEach(i => indices.add(i));
+    // kicker also add highest remaining
+    const kicker = counts.find(c=>c.count===1);
+    if (kicker) kicker.idxs.forEach(i => indices.add(i));
+    return Array.from(indices).sort((a,b)=>a-b);
+  }
+  if (kind === 3) { // trips
+    const t = counts.find(c=>c.count===3);
+    if (t) t.idxs.forEach(i => indices.add(i));
+    // add two highest kickers
+    const kickers = counts.filter(c=>c.count===1).slice(0,2);
+    kickers.forEach(k=>k.idxs.forEach(i=>indices.add(i)));
+    return Array.from(indices).sort((a,b)=>a-b);
+  }
+  if (kind === 6) { // full (3+2)
+    const three = counts.find(c=>c.count===3);
+    const pair = counts.find(c=>c.count===2);
+    if (three) three.idxs.forEach(i=>indices.add(i));
+    if (pair) pair.idxs.forEach(i=>indices.add(i));
+    return Array.from(indices).sort((a,b)=>a-b);
+  }
+  if (kind === 2) { // two pair
+    const pairs = counts.filter(c=>c.count===2).slice(0,2);
+    pairs.forEach(p=>p.idxs.forEach(i=>indices.add(i)));
+    // kicker
+    const kicker = counts.find(c=>c.count===1);
+    if (kicker) kicker.idxs.forEach(i=>indices.add(i));
+    return Array.from(indices).sort((a,b)=>a-b);
+  }
+  if (kind === 1) { // pair
+    const pair = counts.find(c=>c.count===2);
+    if (pair) pair.idxs.forEach(i=>indices.add(i));
+    const kickers = counts.filter(c=>c.count===1).slice(0,3);
+    kickers.forEach(k=>k.idxs.forEach(i=>indices.add(i)));
+    return Array.from(indices).sort((a,b)=>a-b);
+  }
+
+  // high card: highlight the top card
+  const sorted = vals.map((v,i)=>({v,i})).sort((a,b)=> b.v - a.v);
+  indices.add(sorted[0].i);
+  return Array.from(indices).sort((a,b)=>a-b);
+}
+
 // main render
 function render(state) {
   if (!state) return;
@@ -292,6 +444,14 @@ function render(state) {
   for (let s = 0; s < MAX; s++) {
     const pd = (state.players && state.players[s]) || { empty: true };
     const seat = document.createElement('div'); seat.className = 'seat'; seat.dataset.idx = s;
+
+    // determine winning indices for this seat (showdown)
+    let winningIndices = [];
+    if (state.stage === 'showdown' && pd && pd._score && Array.isArray(pd.cards)) {
+      try {
+        winningIndices = computeWinningIndices(pd.cards, pd._score);
+      } catch (e) { winningIndices = []; }
+    }
 
     if (state.toActSeat === s && /(bet1|bet2)/.test(state.stage || '')) seat.classList.add('turn');
 
@@ -314,7 +474,8 @@ function render(state) {
       addBtn.title = 'Aggiungi un bot in questo posto';
       addBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        send({ type: 'add-bot' });
+        // ask server to add a bot at this seat index
+        send({ type: 'add-bot', seat: s });
       });
       // rendi il bottone più piccolo rispetto alle azioni principali
       addBtn.style.padding = '.35rem .6rem';
@@ -341,7 +502,9 @@ function render(state) {
     if (pd && !pd.empty && Array.isArray(pd.cards)) {
       cards.classList.toggle('selectable', s === mySeat && state.stage === 'draw' && !pd.drew);
       pd.cards.forEach((c, i) => {
+        // create card element first
         const cardEl = renderCard(c);
+
         if (s === mySeat && state.stage === 'draw' && !pd.drew) {
           cardEl.addEventListener('click', () => {
             toggleSelect(i, state.config?.MAX_DISCARD || 3);
@@ -351,6 +514,8 @@ function render(state) {
           cardEl.setAttribute('role', 'button');
           cardEl.setAttribute('aria-label', `Carta ${i+1}`);
         }
+        // after creation, mark winning if applicable
+        if (winningIndices.includes(i)) cardEl.classList.add('winning');
         cards.appendChild(cardEl);
       });
     } else {
@@ -403,10 +568,19 @@ function updateActions(state) {
   const a = els.actions;
   if (!a) return;
 
+  // map to friendly labels + keyboard hints
+  const map = { Check: 'Passa / Chiama (Space)', Bet: 'Punta / Rilancia (B)', Call: 'Chiama (C)', Fold: 'Abbandona (F)', Discard: 'Scarta (D)' };
+
   a.check.disabled = !acts.has('Check');
   a.bet.disabled = !acts.has('Bet');
   a.call.disabled = !acts.has('Call');
   a.fold.disabled = !acts.has('Fold');
+
+  // update titles to reflect shortcuts
+  if (a.check) a.check.title = map['Check'];
+  if (a.bet) a.bet.title = map['Bet'];
+  if (a.call) a.call.title = map['Call'];
+  if (a.fold) a.fold.title = map['Fold'];
 
   const canDiscard = acts.has('Discard');
   a.discard.disabled = !canDiscard || selected.size === 0;
@@ -473,20 +647,18 @@ function setupEvents() {
   // Bet button toggles the bet amount control; confirm sends action with amount
   els.actions.bet.addEventListener('click', () => {
     if (els.actions.betControl) {
-      const show = els.actions.betControl.classList.toggle('hidden');
-      // when made visible, focus input
-      if (!show) { els.actions.betAmount?.focus(); }
+      const wasHidden = els.actions.betControl.classList.toggle('hidden');
+      const visible = !wasHidden;
+      els.actions.betControl.setAttribute('aria-hidden', String(!visible));
+      if (visible && els.actions.betAmount) {
+        try { els.actions.betAmount.focus(); els.actions.betAmount.select(); } catch (e) {}
+      }
     } else {
       send({ type: 'action', action: 'Bet' });
     }
   });
   if (els.actions.betConfirm) {
-    els.actions.betConfirm.addEventListener('click', () => {
-      const v = Number(els.actions.betAmount?.value || 0) || 0;
-      if (v <= 0) { showToast('Inserisci un importo valido'); return; }
-      send({ type: 'action', action: 'Bet', amount: v });
-      if (els.actions.betControl) els.actions.betControl.classList.add('hidden');
-    });
+    els.actions.betConfirm.addEventListener('click', () => { if (els.actions.betAmount) send({ type: 'action', action: 'Bet', amount: Number(els.actions.betAmount.value || 0) }); });
   }
   els.actions.call.addEventListener('click', () => send({ type: 'action', action: 'Call' }));
   els.actions.fold.addEventListener('click', () => send({ type: 'action', action: 'Fold' }));
@@ -499,24 +671,15 @@ function setupEvents() {
     selected.clear(); updateDiscardHint(max);
   });
 
+  // close overlay on Enter / Space / Escape and focus overlay button when shown
   window.addEventListener('keydown', (e) => {
-    if (!lastState) return;
-    const k = (e.key || '').toLowerCase();
-    // Space: primary action - prefer Check, fallback to Call
-    if (e.code === 'Space') {
+    if (!els.overlay) return;
+    const isVisible = !els.overlay.classList.contains('hidden');
+    if (!isVisible) return;
+    if (e.key === 'Enter' || e.code === 'Space' || e.key === 'Escape') {
       e.preventDefault();
-      if (!els.actions.check.disabled) els.actions.check.click();
-      else if (!els.actions.call.disabled) els.actions.call.click();
-      return;
+      if (els.overlayBtn) els.overlayBtn.click();
     }
-    if (k === 'c') {
-      // C toggles check if available, otherwise call
-      if (!els.actions.check.disabled) els.actions.check.click();
-      else if (!els.actions.call.disabled) els.actions.call.click();
-    }
-    if (k === 'b' && !els.actions.bet.disabled) els.actions.bet.click();
-    if (k === 'f' && !els.actions.fold.disabled) els.actions.fold.click();
-    if (k === 'd' && !els.actions.discard.disabled) els.actions.discard.click();
   });
 
   window.addEventListener('resize', () => {
