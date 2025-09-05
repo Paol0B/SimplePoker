@@ -54,13 +54,18 @@ function connect() {
     let msg;
     try { msg = JSON.parse(e.data); } catch (err) { console.warn('Invalid ws message', e.data); return; }
     if (msg.type === 'message') {
-      els.status.textContent = msg.text || '';
+      if (els.status) els.status.textContent = msg.text || '';
     } else if (msg.type === 'state' && msg.state) {
+      // assume the state message implies successful join/connection; enable/disable controls
+      if (els.room) els.room.disabled = !!msg.state && false; // keep editable so user may change before rejoin
+      if (els.name) els.name.disabled = !!msg.state && false;
+      if (els.joinBtn) els.joinBtn.disabled = !!msg.state;
+      if (els.startBtn) els.startBtn.disabled = !(['lobby','showdown'].includes(msg.state.stage));
       clearAllToasts();
       const prevMsg = lastState?.message || '';
       render(msg.state);
 
-      if (msg.state.won || msg.state.showOverlay) {
+  if (msg.state.won || msg.state.showOverlay) {
         showOverlay(msg.state.overlayText || 'Fine mano');
       } else {
         hideOverlay();
@@ -506,7 +511,8 @@ function setupEvents() {
     const name = (els.name.value || '').trim();
     if (!room || !name) { showToast('Inserisci stanza e nome'); return; }
     send({ type: 'join', room, name });
-    els.room.disabled = true; els.name.disabled = true; els.joinBtn.disabled = true;
+  // do not disable inputs immediately; wait for server state update to reflect join
+  if (els.joinBtn) els.joinBtn.disabled = true;
   });
 
   els.startBtn.addEventListener('click', () => {

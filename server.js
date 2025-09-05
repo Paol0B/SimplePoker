@@ -8,20 +8,31 @@ const PORT = 8080;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 const server = http.createServer((req, res) => {
-  let filePath = req.url === '/' ? '/index.html' : req.url;
-  filePath = path.join(PUBLIC_DIR, filePath);
+  console.log(`HTTP ${req.method} ${req.url}`);
+  // Normalize requested path and avoid leading slashes that would make path.join ignore PUBLIC_DIR
+  let rel = req.url === '/' ? 'index.html' : decodeURIComponent(req.url.split('?')[0].replace(/^\/+/, ''));
+  const filePath = path.join(PUBLIC_DIR, rel);
   const ext = path.extname(filePath).toLowerCase();
   const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
   fs.readFile(filePath, (err, data) => {
-    if (err) { res.writeHead(404); res.end('Not found'); }
-    else { res.writeHead(200, { 'Content-Type': types[ext] || 'text/plain' }); res.end(data); }
+    if (err) {
+      console.error('Failed to read', filePath, err && err.code);
+      res.writeHead(404);
+      res.end('Not found');
+    }
+    else {
+      console.log('Serving', filePath, 'bytes=', data.length);
+      res.writeHead(200, { 'Content-Type': types[ext] || 'text/plain' });
+      res.end(data);
+    }
   });
 });
 
 const wss = new WebSocket.Server({ server });
 
 // Carte e valutazione
-const RANKS = '23456789JQKA'.split('');
+// include '10' so the deck has the full 13 ranks (2..10,J,Q,K,A)
+const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
 const SUITS = ['♣', '♦', '♥', '♠'];
 const RVAL = Object.fromEntries(RANKS.map((r, i) => [r, i + 2]));
 

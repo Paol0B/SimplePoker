@@ -309,3 +309,41 @@ body {
   0%, 100% { opacity: 0; transform: translateY(20px); }
   10%, 90% { opacity: 1; transform: translateY(0); }
 }
+
+/* Responsive: tablet and small desktop */
+@media (max-width: 900px) {
+  #tableWrap { padding-top: 100px; }
+  .table {
+    width: calc(100vw - 40px);
+    height: calc(60vh);
+    border-radius: 80px;
+  }
+  .seat { width: 150px; padding: 0.6rem; }
+  .seat:nth-child(4), .seat:nth-child(5), .seat:nth-child(6) { bottom: 10px; }
+  .cards { gap: 6px; }
+  .card { width: 44px; height: 62px; font-size: 1.2rem; }
+  .pot-area { transform: translate(-50%, -50%); }
+  .actions { bottom: 14px; padding: 0.6rem; flex-wrap: wrap; width: calc(100% - 40px); left: 50%; transform: translateX(-50%); }
+  .act { padding: 0.6rem 1rem; font-size: 0.95rem; }
+}
+
+/* Responsive: mobile phones */
+@media (max-width: 520px) {
+  body { overflow: auto; }
+  .topbar { padding: 0.6rem 1rem; }
+  .table { height: 50vh; width: calc(100vw - 24px); border-radius: 48px; }
+  .seat { width: 120px; padding: 0.5rem; }
+  .seat .name { font-size: 0.95rem; }
+  .card { width: 36px; height: 52px; font-size: 1rem; margin: 0 3px; }
+  .seat { left: unset; right: unset; transform: none; }
+  .seat:nth-child(1) { top: 8px; left: 50%; transform: translateX(-50%); }
+  .seat:nth-child(2) { top: 50%; left: 8px; transform: translateY(-50%); }
+  .seat:nth-child(3) { top: 50%; right: 8px; transform: translateY(-50%); }
+  .seat:nth-child(4) { bottom: 8px; left: 12%; transform: translateX(-50%); }
+  .seat:nth-child(5) { bottom: 8px; right: 12%; transform: translateX(50%); }
+  .seat:nth-child(6) { bottom: 8px; left: 50%; transform: translateX(-50%); }
+  .actions { position: fixed; bottom: 8px; left: 8px; right: 8px; width: auto; display: flex; justify-content: space-between; }
+  .bet-control { width: 100%; display: flex; gap: 6px; }
+  #betAmount { width: 100%; }
+  .toast { right: 8px; left: 8px; }
+}
