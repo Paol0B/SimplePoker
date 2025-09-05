@@ -9,54 +9,53 @@
 <body>
   <header class="topbar">
     <div class="brand">♠ 5 Card Draw</div>
-    <input id="room" placeholder="Stanza (es. MILANO)" autocomplete="off" />
-    <input id="name" placeholder="Il tuo nome" autocomplete="off" />
-  <button id="joinBtn">Entra</button>
-  <button id="startBtn">Inizia mano</button>
-    <span id="status"></span>
+    <div>
+      <input id="room" placeholder="Stanza (es. MILANO)" autocomplete="off" />
+      <input id="name" placeholder="Il tuo nome" autocomplete="off" />
+      <button id="joinBtn">Entra</button>
+      <button id="startBtn">Inizia mano</button>
+      <span id="status"></span>
+    </div>
   </header>
 
   <main id="tableWrap" class="hidden">
     <section id="table" class="table">
-      <div class="felt"></div>
-      <div class="glow"></div>
-
       <div class="pot-area">
-        <div class="pot-info">
-          <span id="pot">Pot: 0</span> • <span id="stage">Lobby</span>
-        </div>
+        <div id="pot">Pot: 0</div>
+        <div id="stage">Lobby</div>
+        <div id="potChips" class="chip-stack"></div>
       </div>
       <div id="seats" class="seats"></div>
+      <div id="dealerBtn" class="dealer-btn">D</div>
     </section>
-
-    <section class="actions">
-      <div class="left">
-        <button class="act" id="checkBtn" title="Passa / Chiama (Barra spaziatrice)">Passa / Chiama</button>
-        <button class="act" id="betBtn" title="Punta (B)">Punta</button>
-        <div id="betControl" class="bet-control hidden" aria-hidden="true">
-          <input id="betAmount" type="number" min="1" step="1" value="20" />
-          <button id="betConfirm" class="act small">Ok</button>
-        </div>
-        <button class="act" id="callBtn" title="Chiama (C)">Chiama</button>
-        <button class="act" id="foldBtn" title="Abbandona (F)">Abbandona</button>
-      </div>
-      <div class="right">
-        <button class="act alt" id="discardBtn" title="Scarta (D)">Scarta selezionate</button>
-        <span id="discardHint" class="hint">Seleziona fino a 3 carte</span>
-      </div>
-    </section>
-
-    <div class="msg" id="msg"></div>
-    <div id="toasts" class="toasts"></div>
-    <!-- Simple overlay used to show end-of-hand or important messages -->
-    <div id="overlay" class="hidden" aria-hidden="true">
-      <div class="overlay-panel">
-        <div id="overlayText" class="overlay-text"></div>
-        <button id="overlayBtn" class="act">Ok</button>
-      </div>
-    </div>
-
   </main>
+
+  <section class="actions">
+    <div class="left">
+      <button class="act" id="checkBtn" title="Passa / Chiama (Barra spaziatrice)">Passa / Chiama</button>
+      <button class="act" id="betBtn" title="Punta (B)">Punta</button>
+      <div id="betControl" class="bet-control hidden" aria-hidden="true">
+        <input id="betAmount" type="number" min="1" step="1" value="20" />
+        <button id="betConfirm" class="act small">Ok</button>
+      </div>
+      <button class="act" id="callBtn" title="Chiama (C)">Chiama</button>
+      <button class="act" id="foldBtn" title="Abbandona (F)">Abbandona</button>
+    </div>
+    <div class="right">
+      <button class="act alt" id="discardBtn" title="Scarta (D)">Scarta selezionate</button>
+      <span id="discardHint" class="hint">Seleziona fino a 3 carte</span>
+    </div>
+  </section>
+
+  <div class="msg" id="msg"></div>
+  <div id="toasts" class="toasts"></div>
+  
+  <div id="overlay" class="overlay hidden" aria-hidden="true">
+    <div class="overlay-panel">
+      <div id="overlayText" class="overlay-text"></div>
+      <button id="overlayBtn" class="act">Ok</button>
+    </div>
+  </div>
 
   <script src="client.js"></script>
 </body>
