@@ -145,7 +145,7 @@ body {
 .seat:nth-child(3) { top: 50%; right: 20px; transform: translateY(-50%); }
 .seat:nth-child(4) { bottom: 20px; left: 30%; transform: translateX(-50%); }
 .seat:nth-child(5) { bottom: 20px; right: 30%; transform: translateX(-50%); }
-.seat:nth-child(6) { bottom: 20px; left: 50%; transform: translateX(-50%); }
+/* sixth seat removed: no styles needed */
 
 
 .name {
@@ -319,7 +319,7 @@ body {
     border-radius: 80px;
   }
   .seat { width: 150px; padding: 0.6rem; }
-  .seat:nth-child(4), .seat:nth-child(5), .seat:nth-child(6) { bottom: 10px; }
+  .seat:nth-child(4), .seat:nth-child(5) { bottom: 10px; }
   .cards { gap: 6px; }
   .card { width: 44px; height: 62px; font-size: 1.2rem; }
   .pot-area { transform: translate(-50%, -50%); }
@@ -341,7 +341,7 @@ body {
   .seat:nth-child(3) { top: 50%; right: 8px; transform: translateY(-50%); }
   .seat:nth-child(4) { bottom: 8px; left: 12%; transform: translateX(-50%); }
   .seat:nth-child(5) { bottom: 8px; right: 12%; transform: translateX(50%); }
-  .seat:nth-child(6) { bottom: 8px; left: 50%; transform: translateX(-50%); }
+  /* sixth seat removed: no styles needed */
   .actions { position: fixed; bottom: 8px; left: 8px; right: 8px; width: auto; display: flex; justify-content: space-between; }
   .bet-control { width: 100%; display: flex; gap: 6px; }
   #betAmount { width: 100%; }

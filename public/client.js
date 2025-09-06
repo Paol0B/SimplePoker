@@ -376,7 +376,7 @@ function render(state) {
   els.pot.textContent = `Pot: ${state.pot || 0}`;
   renderChipStack(els.potChips, state.pot || 0);
 
-  const MAX = state.config && state.config.MAX_SEATS ? state.config.MAX_SEATS : 6;
+  const MAX = state.config && state.config.MAX_SEATS ? state.config.MAX_SEATS : 5;
   els.seats.innerHTML = '';
 
   for (let s = 0; s < MAX; s++) {

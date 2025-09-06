@@ -105,7 +105,7 @@ function makeRoom(code){
     waitingCalls: 0,
     message: '',
     winners: [], // seat indices at showdown
-    config: { MAX_SEATS: 6, ANTE: 10, BET: 20, MAX_DISCARD: 3 }
+  config: { MAX_SEATS: 5, ANTE: 10, BET: 20, MAX_DISCARD: 3 }
   };
 }
 
